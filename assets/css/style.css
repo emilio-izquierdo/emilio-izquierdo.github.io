@@ -1,0 +1,238 @@
+/* ============================================
+   1. DESIGN TOKENS (custom properties)
+   ============================================ */
+:root {
+  /* Colors */
+  --color-bg:             #fafafa;
+  --color-surface:        #ffffff;
+  --color-text:           #1a1a1a;
+  --color-text-muted:     #555555;
+  --color-border:         #e0e0e0;
+  --color-accent:         #1a56a0;   /* WCAG AA compliant on white */
+  --color-accent-visited: #6b3fa0;
+
+  /* Fonts */
+  --font-body: Charter, 'Bitstream Charter', 'Sitka Text', Cambria, serif;
+  --font-ui:   system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  /* Type scale */
+  --text-xs:   0.75rem;
+  --text-sm:   0.875rem;
+  --text-base: 1rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.25rem;
+  --text-2xl:  1.5rem;
+  --text-3xl:  2rem;
+
+  /* Line heights */
+  --leading-tight:  1.2;
+  --leading-normal: 1.5;
+  --leading-loose:  1.7;
+
+  /* Layout */
+  --max-width:      680px;
+  --padding-inline: 1.5rem;
+  --spacing-base:   1.5rem;
+}
+
+/* ============================================
+   2. RESET (Josh Comeau 2025)
+   ============================================ */
+/* Source: https://www.joshwcomeau.com/css/custom-css-reset/ (March 2025) */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+body {
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+img, picture, video, canvas, svg {
+  display: block;
+  max-width: 100%;
+}
+
+input, button, textarea, select {
+  font: inherit;
+}
+
+p, h1, h2, h3, h4, h5, h6 {
+  overflow-wrap: break-word;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+h1, h2, h3 {
+  text-wrap: balance;
+}
+
+/* ============================================
+   3. BASE TYPOGRAPHY
+   ============================================ */
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-loose);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  line-height: var(--leading-tight);
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+a:visited {
+  color: var(--color-accent-visited);
+}
+
+a:hover {
+  text-decoration: none;
+}
+
+/* ============================================
+   4. LAYOUT
+   ============================================ */
+body {
+  min-height: 100vh;
+}
+
+.content {
+  max-width: var(--max-width);
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: var(--padding-inline);
+  padding-top: var(--spacing-base);
+  padding-bottom: calc(var(--spacing-base) * 2);
+}
+
+/* ============================================
+   5. NAVIGATION
+   ============================================ */
+.site-nav {
+  font-family: var(--font-ui);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: var(--max-width);
+  margin-inline: auto;
+  padding: var(--spacing-base) var(--padding-inline);
+}
+
+.site-nav ul {
+  list-style: none;
+  display: flex;
+  gap: 1.5rem;
+  padding: 0;
+}
+
+.site-nav a {
+  text-decoration: none;
+  color: var(--color-text);
+}
+
+.site-nav a:visited {
+  color: var(--color-text);
+}
+
+.site-nav a:hover {
+  color: var(--color-accent);
+}
+
+.nav-name {
+  font-weight: 700;
+  font-size: var(--text-lg);
+}
+
+.site-nav a[aria-current="page"] {
+  font-weight: 600;
+  border-bottom: 2px solid currentColor;
+}
+
+/* ============================================
+   6. HOME PAGE
+   ============================================ */
+.home-hero h1 {
+  font-size: var(--text-3xl);
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  font-size: var(--text-lg);
+  color: var(--color-text-muted);
+  font-family: var(--font-ui);
+}
+
+.bio {
+  font-size: var(--text-lg);
+  line-height: var(--leading-loose);
+  margin-top: var(--spacing-base);
+}
+
+.contact {
+  margin-top: var(--spacing-base);
+}
+
+.home-links {
+  margin-top: calc(var(--spacing-base) * 2);
+  list-style: none;
+}
+
+.home-links ul {
+  list-style: none;
+  display: flex;
+  gap: 1.5rem;
+  padding: 0;
+}
+
+.home-links a {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+}
+
+/* ============================================
+   7. RESPONSIVE
+   ============================================ */
+@media (max-width: 600px) {
+  :root {
+    --text-3xl: 1.75rem;
+  }
+
+  .site-nav {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .site-nav ul {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .home-links ul {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
+
+/* ============================================
+   8. UTILITIES
+   ============================================ */
+/* Reserved for future utility classes */
