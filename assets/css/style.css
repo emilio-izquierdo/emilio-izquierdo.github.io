@@ -210,10 +210,13 @@ body {
 /* ============================================
    7. RESEARCH PAGE
    ============================================ */
+.research-entry + .research-entry {
+  margin-top: calc(var(--spacing-base) * 2);
+}
+
 .project-title {
   font-size: 1.1rem;
   font-weight: 700;
-  margin-top: var(--spacing-base);
 }
 
 /* ============================================
