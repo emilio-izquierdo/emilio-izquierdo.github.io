@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. The site is served over HTTPS with no 404 errors on any nav link
   4. The page renders correctly and is readable on a phone screen (no horizontal scroll, no clipped text)
 
-**Plans:** 1/2 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 **Wave 1**
 
@@ -82,6 +82,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation + Home | 2/2 | Complete | 2026-05-25 |
+| 1. Foundation + Home | 3/3 | Complete   | 2026-05-26 |
 | 2. Research + Projects + CV | 0/? | Not started | - |
 | 3. Writing + Polish | 0/? | Not started | - |
