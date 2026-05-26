@@ -1,0 +1,51 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-25T21:57:56.022Z",
+  "phase": "01",
+  "phase_name": "Foundation + Home",
+  "phase_dir": ".planning/phases/01-foundation-home",
+  "plan": 1,
+  "task": 0,
+  "total_tasks": 4,
+  "status": "paused",
+  "completed_tasks": [],
+  "remaining_tasks": [
+    {"id": "01-01-T1", "name": "Infrastructure + CSS + Nav", "status": "not_started"},
+    {"id": "01-01-T2", "name": "index.html home page", "status": "not_started"},
+    {"id": "01-02-T1", "name": "Stub pages (research/projects/writing/cv + 404)", "status": "not_started"},
+    {"id": "01-02-T2", "name": "GitHub Pages deploy + live URL verification (checkpoint)", "status": "not_started"}
+  ],
+  "blockers": [
+    {
+      "description": "GitHub username must be confirmed before Plan 01-02 deployment task",
+      "type": "human_action",
+      "workaround": "Plan 01-02 Task 2 is a human-verify checkpoint — it will pause and ask for this"
+    },
+    {
+      "description": "Researcher bio content must be written before index.html can satisfy HOME-01",
+      "type": "human_action",
+      "workaround": "Executor will use placeholder text in active-voice first-person; replace with real content after execution"
+    }
+  ],
+  "human_actions_pending": [
+    {
+      "action": "Confirm GitHub username and verify repo is named username.github.io",
+      "context": "FOUND-01 requires correct repo name; cannot change after content is built",
+      "blocking": true
+    },
+    {
+      "action": "Have CV PDF ready to commit in assets/files/ for Plan 02",
+      "context": "CV-01 requires working PDF download — needed in Phase 2, not Phase 1",
+      "blocking": false
+    }
+  ],
+  "decisions": [
+    {"decision": "Flat HTML files at root (index.html, research.html...)", "rationale": "Simpler than subdirectory convention for 5 pages", "phase": "01"},
+    {"decision": "Fetch-inject nav pattern (components/nav.html + assets/js/nav.js)", "rationale": "Single source of truth for nav; avoids copy-paste maintenance trap", "phase": "01"},
+    {"decision": "System serif fonts (Charter/Cambria stack)", "rationale": "No external CDN dependency, no layout shift, academic typographic feel", "phase": "01"},
+    {"decision": "Josh W. Comeau CSS reset inlined in style.css", "rationale": "Current (March 2025), no npm install, addresses real cross-browser issues", "phase": "01"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "Run /gsd-execute-phase 1 in a fresh context window",
+  "context_notes": "Project was fully initialized (PROJECT.md, config, research, REQUIREMENTS.md, ROADMAP.md) and Phase 1 was planned and verified. 2 plans, 2 waves. Ready to execute. Context exhausted before execution could begin."
+}
