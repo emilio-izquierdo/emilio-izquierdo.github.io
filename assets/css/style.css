@@ -251,6 +251,8 @@ body {
 
 .cv-updated {
   color: var(--color-text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
 }
 
 .cv-actions {
