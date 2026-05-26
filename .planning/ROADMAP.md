@@ -82,6 +82,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation + Home | 3/3 | Complete   | 2026-05-26 |
+| 1. Foundation + Home | 3/3 | Complete    | 2026-05-26 |
 | 2. Research + Projects + CV | 0/? | Not started | - |
 | 3. Writing + Polish | 0/? | Not started | - |
