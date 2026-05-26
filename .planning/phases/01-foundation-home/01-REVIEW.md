@@ -1,12 +1,12 @@
 ---
 phase: 01-foundation-home
-reviewed: 2026-05-25T00:00:00Z
+reviewed: 2026-05-25T22:30:00Z
 depth: standard
 files_reviewed: 10
 files_reviewed_list:
   - assets/css/style.css
-  - components/nav.html
   - assets/js/nav.js
+  - components/nav.html
   - index.html
   - research.html
   - projects.html
@@ -15,8 +15,8 @@ files_reviewed_list:
   - 404.html
   - .nojekyll
 findings:
-  critical: 3
-  warning: 3
+  critical: 2
+  warning: 4
   info: 4
   total: 10
 status: issues_found
@@ -24,167 +24,100 @@ status: issues_found
 
 # Phase 01: Code Review Report
 
-**Reviewed:** 2026-05-25
+**Reviewed:** 2026-05-25T22:30:00Z
 **Depth:** standard
 **Files Reviewed:** 10
 **Status:** issues_found
 
 ## Summary
 
-All ten files for the foundation phase were reviewed. The HTML skeleton, CSS design system, and JS nav-injection pattern are structurally sound and follow the project constraints (plain HTML/CSS/JS, no frameworks, no build step). However, three blockers prevent this from being a shippable site: the nav active-state logic fails silently for the home page on GitHub Pages, a rejected fetch has no error handler, and placeholder template tokens remain in titles/meta/body across every page. Three quality warnings and four informational items round out the findings.
+All ten files were reviewed. The HTML skeleton, CSS design system, and JS nav-injection pattern are structurally sound and follow the project constraints (plain HTML/CSS/JS, no frameworks, no build step). The GitHub Pages repo is confirmed as `emilio-izquierdo.github.io` (serves from `/`), so all absolute-path references (`/assets/css/style.css`, `/components/nav.html`, etc.) are correct. Real content has been filled into `index.html` — no template placeholder tokens remain.
+
+Two critical issues remain. The more serious is that when JavaScript is disabled or the `fetch` call fails, every page except the home page loses all navigation with no fallback — the `#site-nav` div stays empty and the `.catch()` only logs to console. The second critical issue is that `placeholder.innerHTML` assigns raw HTML fetched over the network, which is a latent XSS vector. Four warnings cover a dead CSS rule, hardcoded spacing values that bypass design tokens, a split `body` rule block, and a `res.ok` check inconsistency. Four info items cover the `<header>` landmark gap, the `/index.html` vs `/` inconsistency in the nav component, `text-wrap` browser coverage, and the missing `<noscript>` element.
 
 ---
 
 ## Critical Issues
 
-### CR-01: Active page detection broken for home page on GitHub Pages
+### CR-01: No navigation fallback when fetch fails or JavaScript is disabled
 
-**File:** `assets/js/nav.js:13`
+**File:** `assets/js/nav.js:22-24`
 
-**Issue:** `link.href === window.location.href` compares fully-resolved absolute URLs. The nav link for Home uses `href="/index.html"`, which the browser resolves to `https://username.github.io/index.html`. But when a visitor lands on the GitHub Pages root, `window.location.href` is `https://username.github.io/` (no `index.html`). The two strings are never equal, so `aria-current="page"` is never set on the Home link and the active-underline style never appears on the home page. The other four pages (`/research.html`, `/projects.html`, `/writing.html`, `/cv.html`) are unaffected because their resolved hrefs do match.
+**Issue:** The `.catch()` handler only calls `console.error` and returns, leaving `#site-nav` empty. Every inner page (`research.html`, `projects.html`, `writing.html`, `cv.html`, `404.html`) has no other navigation element. When a user visits any of these pages and the fetch fails — due to a network error, a browser extension blocking fetch, a misconfigured deployment, or JavaScript being disabled — they see the page content but have no way to navigate anywhere. The only partial fallback is the `<nav class="home-links">` on `index.html`, which only works from the home page.
 
-**Fix:**
+This is a complete navigation failure on all interior pages under realistic failure conditions. A PI arriving directly at `research.html` (e.g., from a LinkedIn link) with JS disabled would see the research page with no navigation to the CV.
+
+**Fix (preferred — eliminates the problem entirely):** Remove `nav.js` and the `#site-nav` placeholder. Paste the `<nav>` block from `components/nav.html` directly into each HTML file and add `aria-current="page"` to the current page's link statically. Five pages, eleven lines each — no fetch, no innerHTML, no failure modes.
+
+**Fix (minimal — if the fetch pattern must be kept):** Add a hardcoded fallback nav in the catch:
 ```js
-links.forEach(function (link) {
-  var linkPath = new URL(link.href).pathname;
-  var currentPath = window.location.pathname;
-
-  // Treat "/" and "/index.html" as equivalent
-  var normalise = function (p) {
-    return p === '/' ? '/index.html' : p;
-  };
-
-  if (normalise(linkPath) === normalise(currentPath)) {
-    link.setAttribute('aria-current', 'page');
-  }
+.catch(function (err) {
+  console.error('Site navigation failed to load:', err);
+  placeholder.innerHTML =
+    '<nav class="site-nav" aria-label="Main navigation">' +
+    '<a href="/" class="nav-name">Emilio</a>' +
+    '<ul>' +
+    '<li><a href="/">Home</a></li>' +
+    '<li><a href="/research.html">Research</a></li>' +
+    '<li><a href="/projects.html">Projects</a></li>' +
+    '<li><a href="/writing.html">Writing</a></li>' +
+    '<li><a href="/cv.html">CV</a></li>' +
+    '</ul></nav>';
 });
 ```
 
 ---
 
-### CR-02: Unhandled fetch rejection in nav.js silently breaks navigation
+### CR-02: `innerHTML` assigned from network-fetched content is a latent XSS vector
 
-**File:** `assets/js/nav.js:5-17`
+**File:** `assets/js/nav.js:11`
 
-**Issue:** The `fetch('/components/nav.html')` promise chain has no `.catch()` handler. If the request fails for any reason — network error, wrong deployment path, 404 — the rejection is silently swallowed in all browsers that log unhandled promise rejections. More importantly, the `#site-nav` placeholder remains empty, leaving visitors with no navigation on every page of the site. There is no fallback. This is a complete navigation failure on every page when the fetch misses.
+**Issue:** `placeholder.innerHTML = html` inserts raw HTML returned by `fetch('/components/nav.html')` directly into the DOM without any sanitization. Because the fetch is same-origin, an attacker cannot normally control this content — however, this is a latent vulnerability. If the static file host is compromised (e.g., a malicious push to the GitHub repo, a supply-chain attack on GitHub Pages), the injected HTML executes script in every visitor's browser on every page load. Additionally, browsers may execute `<script>` tags found inside innerHTML in some contexts, and event handler attributes (`onclick`, etc.) will be active.
 
-**Fix:**
+The architectural alternative (duplicate the nav statically in each file) eliminates this class of risk entirely with no tradeoffs for a 5-page site.
+
+**Fix (preferred):** Replace the fetch/innerHTML approach with static HTML duplication (see CR-01 preferred fix).
+
+**Fix (minimal — if the fetch pattern must be kept):** Use `DOMParser` and insert nodes rather than assigning innerHTML directly:
 ```js
-fetch('/components/nav.html')
-  .then(function (res) {
-    if (!res.ok) {
-      throw new Error('Nav fetch failed: ' + res.status);
-    }
-    return res.text();
-  })
-  .then(function (html) {
-    placeholder.innerHTML = html;
-    // ... active-link logic ...
-  })
-  .catch(function () {
-    // Degrade to inline nav so the site remains navigable
-    placeholder.innerHTML =
-      '<nav class="site-nav" aria-label="Main navigation">' +
-      '<a href="/index.html" class="nav-name">Emilio</a>' +
-      '<ul>' +
-      '<li><a href="/index.html">Home</a></li>' +
-      '<li><a href="/research.html">Research</a></li>' +
-      '<li><a href="/projects.html">Projects</a></li>' +
-      '<li><a href="/writing.html">Writing</a></li>' +
-      '<li><a href="/cv.html">CV</a></li>' +
-      '</ul></nav>';
-  });
+.then(function (html) {
+  var parser = new DOMParser();
+  var doc = parser.parseFromString(html, 'text/html');
+  var nav = doc.querySelector('nav');
+  if (nav) {
+    placeholder.appendChild(nav);
+    // ... active-link logic using placeholder.querySelectorAll('a') ...
+  }
+});
 ```
-
-Alternatively, duplicate the nav HTML statically in each page (the approach the CLAUDE.md stack notes already endorses for simplicity) and remove the JS fetch pattern entirely.
-
----
-
-### CR-03: Placeholder template tokens ship in titles, meta descriptions, and body copy
-
-**Files:** `index.html:6-7,15-21,24`, `research.html:6-7`, `projects.html:6-7`, `writing.html:6-7`, `cv.html:6-7`, `404.html:6-7`
-
-**Issue:** Every page contains unfilled template tokens such as `[Surname]`, `[Institution]`, `[field]`, `[research area]`, `[specific question or phenomenon]`, `[method or approach]`, and `email@example.com`. These tokens appear in:
-- `<title>` tags (shown in browser tabs, search engine results)
-- `<meta name="description">` (shown in search snippets)
-- Visible body copy on `index.html`
-- The mailto link on `index.html`
-
-Publishing to GitHub Pages with these tokens live means a PI visiting the site sees `[Surname]` in the browser tab and bracketed placeholders throughout the bio. This directly undermines the "core value" goal of the project.
-
-**Fix:** Fill in all `[...]` tokens with real content before the site goes live. At minimum, `index.html` requires: name, institution, field, research area, and a real email address. Each page title and meta description must also be updated to reflect real identifying information.
+`DOMParser` does not execute scripts in the parsed fragment, limiting the injection surface.
 
 ---
 
 ## Warnings
 
-### WR-01: fetch() call in nav.js does not verify HTTP status before using response body
+### WR-01: Dead CSS rule — `list-style: none` on a `<nav>` element
 
-**File:** `assets/js/nav.js:5-6`
+**File:** `assets/css/style.css:195`
 
-**Issue:** `res.text()` is called unconditionally regardless of `res.ok`. If GitHub Pages serves a 404 for `/components/nav.html` (e.g., wrong path or missing file), `fetch` resolves (not rejects) with a non-OK response. The code then calls `.innerHTML` on whatever the 404 error page HTML contains — likely a GitHub 404 page — injecting it into the nav placeholder. This is also covered by the fix in CR-02, but the missing `res.ok` check is worth calling out independently as a pattern error.
-
-**Fix:** Add `if (!res.ok) throw new Error(res.status)` before `return res.text()` (shown in CR-02 fix).
-
----
-
-### WR-02: nav.js uses innerHTML with network-fetched content
-
-**File:** `assets/js/nav.js:8`
-
-**Issue:** `placeholder.innerHTML = html` assigns HTML fetched from the server directly into the DOM. While the fetch is same-origin (`/components/nav.html`) which prevents attacker-controlled input in normal operation, this pattern is a latent XSS vector: if the deployment pipeline is ever compromised, or if a path-traversal bug causes a different file to be served, unsanitised HTML executes script in the user's browser. It also breaks if `nav.html` is served with unexpected encoding.
-
-For a static site with no user input this is low-probability, but the pattern should be noted. The architectural alternative (duplicate nav HTML statically in each page — already endorsed in CLAUDE.md) eliminates this class of risk entirely.
-
-**Fix (preferred):** Remove `nav.js` and the `#site-nav` placeholder. Paste the `<nav>` block from `components/nav.html` directly into each HTML file. Five pages, eleven lines each — a one-time copy that eliminates the fetch, the innerHTML, and the active-state bug simultaneously.
-
----
-
-### WR-03: CSS rule `.home-links { list-style: none; }` targets the wrong element
-
-**File:** `assets/css/style.css:193-196`
-
-**Issue:** `.home-links` in the HTML is a `<nav>` element (see `index.html:28`). `list-style` is only meaningful on `<ul>`, `<ol>`, or `<li>` elements; applying it to a `<nav>` has no effect. The intent was clearly to reset the bullet on the inner `<ul>`, which is separately (and correctly) handled by `.home-links ul { list-style: none; ... }` at line 198. The rule at line 195 is dead and misleading.
-
+**Issue:** `.home-links` in `index.html` is a `<nav>` element (line 25). The rule:
 ```css
-/* Current — dead rule */
 .home-links {
   margin-top: calc(var(--spacing-base) * 2);
-  list-style: none;   /* <-- has no effect on <nav> */
+  list-style: none;   /* dead — has no effect on <nav> */
 }
 ```
+`list-style` is only meaningful on `<ul>`, `<ol>`, or `<li>` elements. The correct reset for the inner list is the separate rule at line 198 (`.home-links ul { list-style: none; }`), which already handles this. The dead `list-style` declaration on `.home-links` does nothing and misleads anyone reading the stylesheet.
 
-**Fix:** Remove `list-style: none` from `.home-links` — the margin rule on lines 193-196 should stay, just remove the list-style property from it.
-
----
-
-## Info
-
-### IN-01: body rule block is split across three separate declarations
-
-**File:** `assets/css/style.css:51-54, 80-86, 113-115`
-
-**Issue:** Properties for `body` are spread across three separate rule blocks — the reset block (lines 51-54), the base typography block (lines 80-86), and the layout block (lines 113-115). While the browser merges these correctly, it makes it harder to audit the complete set of body styles in one place and creates the appearance that `min-height: 100vh` is distinct from the typography declarations.
-
-**Fix:** Consolidate all `body` declarations into the single base typography block (section 3), or at minimum add a comment linking the blocks. The reset block intentionally separates `line-height: 1.5` — that can stay as it mirrors the Comeau reset source — but the section 4 `min-height` belongs logically alongside `background-color` and `color`.
+**Fix:** Remove the `list-style: none` line from the `.home-links` block. The `margin-top` on that same rule is correct and should stay.
 
 ---
 
-### IN-02: .nojekyll is an empty file — correct, but worth documenting
+### WR-02: Hardcoded `1.5rem` gap values bypass the `--spacing-base` design token
 
-**File:** `.nojekyll`
+**File:** `assets/css/style.css:142, 201`
 
-**Issue:** The file exists and is correctly empty (0 bytes). GitHub Pages only requires its presence, not any content. This is correct. However, because the project has no README and no comments, a future maintainer might wonder whether the file is accidentally empty or intentionally so. Consider adding a one-line comment in `CLAUDE.md` explaining the file's purpose, since `.nojekyll` cannot contain comments itself.
-
-**Fix:** Add a note to `CLAUDE.md` (already references this file): "`.nojekyll` — intentionally empty file that tells GitHub Pages to skip Jekyll processing."
-
----
-
-### IN-03: Hardcoded gap values in nav and home-links are not using design tokens
-
-**File:** `assets/css/style.css:142, 202`
-
-**Issue:** Both `.site-nav ul { gap: 1.5rem; }` (line 142) and `.home-links ul { gap: 1.5rem; }` (line 202) hard-code `1.5rem` instead of `var(--spacing-base)`. The design token `--spacing-base: 1.5rem` exists for exactly this purpose. If the base spacing changes, these two values will silently diverge.
+**Issue:** Both `.site-nav ul` (line 142) and `.home-links ul` (line 201) hard-code `gap: 1.5rem` rather than `gap: var(--spacing-base)`. The design token `--spacing-base: 1.5rem` exists at line 35 precisely to make global spacing changes a single-line edit. As written, if `--spacing-base` is changed (e.g., to `1.25rem` for tighter spacing), these two gaps will silently diverge.
 
 **Fix:**
 ```css
@@ -199,23 +132,103 @@ For a static site with no user input this is low-probability, but the pattern sh
 
 ---
 
-### IN-04: nav.html uses `/index.html` links — inconsistent with GitHub Pages canonical URL
+### WR-03: `body` styles split across three separate rule blocks
 
-**File:** `components/nav.html:2,4`
+**File:** `assets/css/style.css:51-54, 80-86, 113-115`
 
-**Issue:** The name link and the Home list item both point to `/index.html`. GitHub Pages canonically serves the home page at `/` (no filename). Linking explicitly to `/index.html` works but produces a URL with `index.html` in the address bar after clicking, while direct visitors see `/`. This inconsistency makes the active-state comparison in `nav.js` harder (it contributes directly to CR-01) and may produce duplicate-URL signals in search engine indexing.
+**Issue:** The complete set of `body` properties is declared in three separate blocks:
+- Lines 51–54 (reset section): `line-height: 1.5`, `-webkit-font-smoothing: antialiased`
+- Lines 80–86 (typography section): `font-family`, `font-size`, `line-height: var(--leading-loose)`, `color`, `background-color`
+- Lines 113–115 (layout section): `min-height: 100vh`
 
-**Fix:** Change both nav links from `/index.html` to `/`:
+Note that `line-height` is set twice on `body` — `1.5` in the reset block and `var(--leading-loose)` (which evaluates to `1.7`) in the typography block. The cascade resolves this correctly (typography block wins), but the dual declaration invites confusion about which value is actually applied.
+
+**Fix:** Consolidate `min-height: 100vh` into the typography section's `body` block (section 3), where it logically belongs alongside `background-color`. The reset block's `line-height: 1.5` can stay as a reset baseline per the Comeau reset convention, but add a comment noting it is intentionally overridden below.
+
+---
+
+### WR-04: `res.ok` is checked in `nav.js`, but this is a change from the previous version — verify the check is complete
+
+**File:** `assets/js/nav.js:7`
+
+**Issue:** The current code correctly checks `if (!res.ok) throw new Error(...)` before calling `res.text()`. This is the right pattern. However, the error is then caught by the `.catch()` at line 22, which only `console.error`s — it does not render a fallback nav. So the `res.ok` guard and the lack of a fallback in `.catch()` together mean: a non-2xx response (e.g., GitHub Pages 404 for `components/nav.html`) is correctly detected, correctly thrown, and then silently discarded, leaving the nav empty. This is the same outcome as CR-01 — flagged here to make clear that fixing CR-01's catch block resolves this path too.
+
+**Fix:** See CR-01 fix. The `res.ok` check is correct and should be kept; the `.catch()` handler needs the fallback nav rendering.
+
+---
+
+## Info
+
+### IN-01: No `<header>` landmark wraps the navigation
+
+**File:** `components/nav.html:1`
+
+**Issue:** The injected `<nav>` is placed inside a `<div id="site-nav">` with no `<header>` landmark wrapping it. Screen readers and accessibility tools use landmark regions to help users jump between sections. A `<header>` element at the page level is the conventional landmark container for site-wide navigation. Without it, the navigation exists only as a `<nav>` landmark (which is fine), but the page-level header region is absent, which means assistive technology users cannot use "jump to header" shortcuts.
+
+**Fix:** In `components/nav.html`, wrap the nav in a `<header>`:
+```html
+<header>
+  <nav class="site-nav" aria-label="Main navigation">
+    ...
+  </nav>
+</header>
+```
+Update `style.css` if needed — the `header` element would not need additional styles given the existing `.site-nav` rules.
+
+---
+
+### IN-02: `components/nav.html` links to `/index.html` instead of `/`
+
+**File:** `components/nav.html:2, 4`
+
+**Issue:** The name link (`<a href="/index.html" class="nav-name">`) and the Home list item (`<a href="/index.html">Home</a>`) both point to `/index.html`. GitHub Pages canonically serves the root as `/`. Linking to `/index.html` works, but clicking "Home" from within the site navigates to a URL ending in `/index.html` rather than `/`, creating a URL inconsistency between a first-time visit and a nav click. The `nav.js` active-state logic correctly handles this by normalizing `/` to `/index.html` for comparison purposes, but the root cause is the explicit `/index.html` hrefs in the nav component.
+
+**Fix:** Change both home links in `components/nav.html` to `/`:
 ```html
 <a href="/" class="nav-name">Emilio</a>
 <ul>
   <li><a href="/">Home</a></li>
   ...
 ```
-And update `index.html`'s home-links section similarly. The normalisation logic in the CR-01 fix also addresses this, but changing the href to `/` is the cleaner root fix.
+The `nav.js` normalization (line 14) can then be simplified or removed.
 
 ---
 
-_Reviewed: 2026-05-25_
+### IN-03: `text-wrap: pretty` and `text-wrap: balance` have limited browser support
+
+**File:** `assets/css/style.css:70, 74`
+
+**Issue:** `text-wrap: pretty` (Chrome 117+, Firefox 124+, Safari 18+) and `text-wrap: balance` (Chrome 114+, Firefox 121+, Safari 17.5+) are relatively recent CSS properties. Both degrade gracefully — unsupported browsers use normal line-wrapping, so the text is readable, just not optimally wrapped. For a site targeting PIs at academic institutions, which may use older browser profiles or corporate-managed machines, this is worth noting. No content is broken; this is a cosmetic fallback risk.
+
+**Fix:** No action required — the degradation is acceptable. Document this as a known browser-compatibility trade-off if desired.
+
+---
+
+### IN-04: No `<noscript>` fallback for the navigation
+
+**File:** All HTML pages (`index.html`, `research.html`, `projects.html`, `writing.html`, `cv.html`, `404.html`)
+
+**Issue:** All pages rely on `nav.js` to inject navigation. There is no `<noscript>` element on any page providing a static nav fallback. Users with JavaScript disabled (common in some corporate, government, or high-security academic environments) see no navigation on any page except `index.html` (which has the secondary `<nav class="home-links">`). The preferred fix in CR-01 (static nav duplication) resolves this more completely, but if the fetch pattern is retained, a `<noscript>` nav should be added.
+
+**Fix (if fetch pattern is kept):** Add a `<noscript>` block immediately after `<div id="site-nav">` on each page:
+```html
+<div id="site-nav"></div>
+<noscript>
+  <nav class="site-nav" aria-label="Main navigation">
+    <a href="/" class="nav-name">Emilio</a>
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="/research.html">Research</a></li>
+      <li><a href="/projects.html">Projects</a></li>
+      <li><a href="/writing.html">Writing</a></li>
+      <li><a href="/cv.html">CV</a></li>
+    </ul>
+  </nav>
+</noscript>
+```
+
+---
+
+_Reviewed: 2026-05-25T22:30:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
